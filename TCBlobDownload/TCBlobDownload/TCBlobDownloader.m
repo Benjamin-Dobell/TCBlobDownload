@@ -186,9 +186,23 @@ NSString * const TCHTTPStatusCode = @"httpStatus";
 
 - (void)connection:(NSURLConnection*)connection didReceiveResponse:(NSURLResponse *)response
 {
-    self.expectedDataLength = [response expectedContentLength];
     NSHTTPURLResponse *httpUrlResponse = (NSHTTPURLResponse *)response;
     
+    if (httpUrlResponse.statusCode == 416) { // Requested range not satisfiable
+        // Delete the file and retry (without the bad range header)
+        NSError *fileError;
+        [[NSFileManager defaultManager] removeItemAtPath:self.pathToFile error:&fileError];
+        if (!fileError) {
+            [self start];
+            return;
+        }
+        else {
+            TCLog(@"An error occured while removing file - %@", fileError);
+        }
+    }
+
+    self.expectedDataLength = [response expectedContentLength];
+
     NSError *error;
     
     if (httpUrlResponse.statusCode >= 400) {
